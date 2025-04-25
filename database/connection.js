@@ -9,11 +9,13 @@ const useLocalhost = process.env.USE_LOCALHOST === 'true';
 if (useLocalhost) {
     console.log("Inside local")
     connectionParams = {
-        user: "root",
-        host: "localhost",
-        password: "Galangdb00",
-        database: "E_commerce",
+        user: process.env.DB_SERVER_USER,
+        host: process.env.DB_SERVER_HOST,
+        password: process.env.DB_SERVER_PASSWORD,
+        database: process.env.DB_SERVER_DATABASE,
     };
+    console.log("Inside local" , connectionParams);
+    
 } else {
     connectionParams = {
         user: process.env.DB_SERVER_USER,
