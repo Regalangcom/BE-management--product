@@ -1,5 +1,6 @@
 const sharp = require("sharp");
 const uploadFileBlob = require("../../config/blobConfig");
+const crypto = require("crypto");
 
 const imageProcessingConfig = {
   width: 800,
@@ -7,15 +8,20 @@ const imageProcessingConfig = {
   quality: 60,
 };
 
+// Fungsi untuk menghasilkan hash dari buffer gambar
+const generateImageHash = (buffer) => {
+  return crypto.createHash("md5").update(buffer).digest("hex");
+};
+
 const processImage = async (file) => {
   try {
     // Compress image
     const processedImageBuffer = await sharp(file.buffer)
-      .webp({ 
+      .webp({
         quality: imageProcessingConfig.quality,
         effort: 6,
         strip: true,
-        lossless: false
+        lossless: false,
       })
       .resize({
         width: imageProcessingConfig.width,
@@ -25,18 +31,23 @@ const processImage = async (file) => {
       })
       .toBuffer();
 
-    // Generate unique filename
-    const timestamp = Date.now();
-    const safeFilename = file.originalname.replace(/[^a-zA-Z0-9]/g, '_');
-    const blobFilename = `${timestamp}-${safeFilename}.webp`;
+    // Generate hash dari buffer yang sudah diproses
+    const imageHash = generateImageHash(processedImageBuffer);
 
-    // Upload ke blob storage
+    // Ini memungkinkan Vercel Blob untuk mendeteksi duplikasi
+    // Format: original-filename.webp (tanpa timestamp)
+    const safeFilename = file.originalname.replace(/[^a-zA-Z0-9]/g, "_");
+    // const fileExtension = safeFilename.split('_').pop();
+    // const baseFilename = safeFilename.replace(fileExtension, '');
+    const blobFilename = `${safeFilename}`;
+
+    // Upload ke blob storage dengan opsi deduplication
     let blobUrl;
     try {
       blobUrl = await uploadFileBlob(
         processedImageBuffer,
         blobFilename,
-        'image/webp'
+        `image/${file.mimetype}`
       );
     } catch (uploadError) {
       console.error("Failed to upload to blob storage:", uploadError);
@@ -51,7 +62,7 @@ const processImage = async (file) => {
       ...file,
       buffer: processedImageBuffer,
       blobUrl: blobUrl,
-      mimetype: "image/webp",
+      mimetype: `image/${file.mimetype}`,
       size: processedImageBuffer.length,
     };
   } catch (error) {
@@ -72,7 +83,7 @@ const processAllImages = async (files) => {
     // Process additionalImages if exists
     if (files.additionalImages) {
       files.additionalImages = await Promise.all(
-        files.additionalImages.map(file => processImage(file))
+        files.additionalImages.map((file) => processImage(file))
       );
     }
 

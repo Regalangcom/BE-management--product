@@ -14,7 +14,6 @@ if (useLocalhost) {
         password: process.env.DB_SERVER_PASSWORD,
         database: process.env.DB_SERVER_DATABASE,
     };
-    console.log("Inside local" , connectionParams);
     
 } else {
     connectionParams = {

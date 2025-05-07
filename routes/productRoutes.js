@@ -22,6 +22,7 @@ router.get("/search", productController.searchProduct);
 // router.get("/allOrderByProductId/:id", productController.allOrderByProductId);
 // done
 router.post("/create", handleUpload, productController.createProduct);
+router.put("/update/:productId", handleUpload, productController.updateProduct);
 // router.post("/update", productController.updateProduct);
 router.delete("/delete/:id", productController.deleteProduct);
 // router.delete('/images/:imageId', productController.deleteProductImage);

@@ -140,28 +140,69 @@ exports.createProduct = async (productData) => {
     productData.categoryId,
     productData.subCategoryId || null,
     productData.status || "draft",
-    productData.featuredImage || null,
     productData.isActive ? 1 : 0,
   ];
 
-  const [result] = await pool.query(query, values);
-  return result;
+  const [results] = await pool.query(query, values);
+  console.log("product data created" , results)
+  return results;
 };
 
-exports.updateProduct = (productId, name, price, description) => {
-  return new Promise((resolve, reject) => {
-    pool.query(
-      "UPDATE product SET name = ?, price = ?, description = ? WHERE productId = ?",
-      [name, price, description, productId],
-      (err, result) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(result);
-        }
-      }
-    );
-  });
+exports.updateProduct = async (productId, productData) => {
+  try {
+    const query = `
+      UPDATE product SET
+        name = ?,
+        slug = ?,
+        description = ?,
+        price = ?,
+        discount = ?,
+        stock = ?,
+        diameters = ?,
+        packaging = ?,
+        tags = ?,
+        categoryId = ?,
+        subCategoryId = ?,
+        status = ?,
+        isActive = ?,
+        updatedBy = ?
+      WHERE productId = ?
+    `;
+
+    const tagsValue = Array.isArray(productData.tags)
+      ? productData.tags.join(",")
+      : productData.tags;
+
+    const values = [
+      productData.name,
+      productData.slug,
+      productData.description,
+      productData.price,
+      productData.discount || 0.0,
+      productData.stock || 0,
+      productData.diameters,
+      productData.packaging,
+      tagsValue,
+      productData.categoryId,
+      productData.subCategoryId || null,
+      productData.status || 'draft',
+      productData.isActive ? 1 : 0,
+      productData.updatedBy || null,
+      productId
+    ];
+
+    const [result] = await pool.query(query, values);
+    
+    if (result.affectedRows === 0) {
+      throw new Error(`Product with ID ${productId} not found`);
+    }
+    
+    console.log(`Product ${productId} updated successfully`);
+    return result;
+  } catch (error) {
+    console.error(`Error updating product ${productId}:`, error);
+    throw error;
+  }
 };
 
 exports.deleteProduct = (productId) => {
@@ -232,24 +273,15 @@ exports.deleteProductImage = async (imageId) => {
   return result;
 };
 
-// Function untuk mengupdate urutan gambar
-// exports.updateImageOrder = (imageId, newOrder) => {
-//   return new Promise((resolve, reject) => {
-//     const query = `
-//             UPDATE product_images
-//             SET sortOrder = ?
-//             WHERE imageId = ?
-//         `;
 
-//     pool.query(query, [newOrder, imageId], (err, result) => {
-//       if (err) {
-//         reject(err);
-//       } else {
-//         resolve(result);
-//       }
-//     });
-//   });
-// };
+// Update gambar produk yang sudah ada
+exports.updateProductImage = async (imageId, imageType, imageUrl) => {
+  const [result] = await pool.query(
+    "UPDATE product_images SET imageType = ?, imageUrl = ? WHERE imageId = ?",
+    [imageType, imageUrl, imageId]
+  );
+  return result;
+};
 
 // Jika ingin filter berdasarkan kategori tertentu
 exports.getProductsByCategoryId = async (categoryId) => {
@@ -324,4 +356,24 @@ exports.getProductsBySubCategoryId = async (subCategoryId) => {
       ? JSON.parse(`[${row.product_images}]`)
       : [],
   }));
+};
+
+// Mendapatkan gambar utama produk (dengan sortOrder = 1)
+exports.getMainProductImage = async (productId) => {
+  const [images] = await pool.query(
+    "SELECT imageId FROM product_images WHERE productId = ? AND sortOrder = 1",
+    [productId]
+  );
+  
+  return images.length > 0 ? images[0] : null;
+};
+
+// Mendapatkan nilai sortOrder tertinggi dari gambar produk
+exports.getMaxImageSortOrder = async (productId) => {
+  const [rows] = await pool.query(
+    "SELECT COALESCE(MAX(sortOrder), 0) as maxOrder FROM product_images WHERE productId = ?",
+    [productId]
+  );
+  
+  return rows[0].maxOrder;
 };
